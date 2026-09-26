@@ -23,6 +23,7 @@ import (
 	"github.com/adriel-meb/agnambie-backend/internal/cache"
 	"github.com/adriel-meb/agnambie-backend/internal/config"
 	"github.com/adriel-meb/agnambie-backend/internal/handler"
+	"github.com/adriel-meb/agnambie-backend/internal/logger"
 	"github.com/adriel-meb/agnambie-backend/internal/router"
 )
 
@@ -136,7 +137,7 @@ func setupLogger(cfg config.Config) *slog.Logger {
 	if strings.ToLower(cfg.LogFormat) == "json" {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	} else {
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		handler = logger.NewPrettyHandler(os.Stdout, opts)
 	}
 
 	return slog.New(handler)

@@ -9,6 +9,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -41,20 +42,28 @@ type Config struct {
 
 	// Env is the deployment environment: "development" or "production".
 	Env string
+
+	// RateLimitReqsPerSec is the allowed requests per second per IP (default: 10).
+	RateLimitReqsPerSec float64
+
+	// RateLimitBurst is the maximum burst size for rate limiting per IP (default: 30).
+	RateLimitBurst int
 }
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() Config {
 	return Config{
-		Port:               envOrDefault("PORT", "8080"),
-		BibleBrainBaseURL:  envOrDefault("BIBLE_BRAIN_BASE_URL", "https://4.dbt.io/api"),
-		BibleBrainAPIKey:   os.Getenv("BIBLE_BRAIN_API_KEY"),
-		BibleBrainTimeout:  15 * time.Second,
-		RedisURL:           os.Getenv("REDIS_URL"),
-		CORSAllowedOrigins: parseCORSOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
-		LogLevel:           envOrDefault("LOG_LEVEL", "info"),
-		LogFormat:          envOrDefault("LOG_FORMAT", "text"),
-		Env:                envOrDefault("ENV", "development"),
+		Port:                envOrDefault("PORT", "8080"),
+		BibleBrainBaseURL:   envOrDefault("BIBLE_BRAIN_BASE_URL", "https://4.dbt.io/api"),
+		BibleBrainAPIKey:    os.Getenv("BIBLE_BRAIN_API_KEY"),
+		BibleBrainTimeout:   15 * time.Second,
+		RedisURL:            os.Getenv("REDIS_URL"),
+		CORSAllowedOrigins:  parseCORSOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
+		LogLevel:            envOrDefault("LOG_LEVEL", "info"),
+		LogFormat:           envOrDefault("LOG_FORMAT", "text"),
+		Env:                 envOrDefault("ENV", "development"),
+		RateLimitReqsPerSec: envOrDefaultFloat64("RATE_LIMIT_REQS_PER_SEC", 10.0),
+		RateLimitBurst:      envOrDefaultInt("RATE_LIMIT_BURST", 30),
 	}
 }
 
@@ -87,4 +96,22 @@ func parseCORSOrigins(raw string) []string {
 		return []string{"*"}
 	}
 	return origins
+}
+
+func envOrDefaultFloat64(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
+func envOrDefaultInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			return parsed
+		}
+	}
+	return fallback
 }

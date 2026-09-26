@@ -74,7 +74,7 @@ func main() {
 
 	// ── 6. Handler + Router ─────────────────────────────────────────────
 	h := handler.NewHandler(bbClient, c)
-	r := router.New(h, cfg.CORSAllowedOrigins, logger)
+	r := router.New(h, cfg.CORSAllowedOrigins, cfg.RateLimitReqsPerSec, cfg.RateLimitBurst, logger)
 
 	// ── 7. Start server with graceful shutdown ──────────────────────────
 	srv := &http.Server{

@@ -194,7 +194,7 @@ func IsAllowedFileset(filesetID string) bool {
 // IsAllowedBibleID returns true if the Bible abbreviation (e.g. "FANBSG") is
 // derived from an allowed fileset.
 func IsAllowedBibleID(bibleID string) bool {
-	return true
+	return allowedBibleIDs[bibleID]
 }
 
 // FindLanguage returns the Language for an ISO code, or nil if not found.

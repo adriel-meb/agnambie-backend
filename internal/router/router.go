@@ -19,7 +19,7 @@ import (
 // New creates a fully configured chi.Router with all middleware and routes.
 // Separating route registration from main.go makes the routing testable
 // and scannable in one file.
-func New(h *handler.Handler, corsOrigins []string, logger *slog.Logger) chi.Router {
+func New(h *handler.Handler, corsOrigins []string, rlReqsPerSec float64, rlBurst int, logger *slog.Logger) chi.Router {
 	r := chi.NewRouter()
 
 	// ── Global middleware stack (order matters) ──────────────────────────
@@ -36,13 +36,17 @@ func New(h *handler.Handler, corsOrigins []string, logger *slog.Logger) chi.Rout
 	r.Get("/ready", h.Ready)
 
 	// ── API routes ──────────────────────────────────────────────────────
-	r.Route("/api", func(r chi.Router) {
+	apiRoutes := func(r chi.Router) {
+		r.Use(middleware.RateLimit(rlReqsPerSec, rlBurst))
 		r.Get("/languages", h.Languages)
 		r.Get("/bibles", h.Bibles)
 		r.Get("/books", h.Books)
 		r.Get("/audio", h.Audio)
 		r.Get("/copyright", h.Copyright)
-	})
+	}
+
+	r.Route("/api", apiRoutes)
+	r.Route("/api/v1", apiRoutes)
 
 	return r
 }

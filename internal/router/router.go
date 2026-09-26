@@ -43,6 +43,7 @@ func New(h *handler.Handler, corsOrigins []string, rlReqsPerSec float64, rlBurst
 		r.Get("/books", h.Books)
 		r.Get("/audio", h.Audio)
 		r.Get("/copyright", h.Copyright)
+		r.Post("/metrics", h.Metrics)
 	}
 
 	r.Route("/api", apiRoutes)

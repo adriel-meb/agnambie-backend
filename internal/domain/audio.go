@@ -11,13 +11,13 @@ package domain
 type AudioChapter struct {
 	BookID        string   `json:"book_id"`
 	BookName      string   `json:"book_name"`
-	ChapterStart  int      `json:"chapter_start"`
-	ChapterEnd    *int     `json:"chapter_end"`
-	VerseStart    *string  `json:"verse_start"`
-	VerseEnd      *string  `json:"verse_end"`
-	Timestamp     *float64 `json:"timestamp"`
+	ChapterStart  any      `json:"chapter_start"`
+	ChapterEnd    any      `json:"chapter_end"`
+	VerseStart    any      `json:"verse_start"`
+	VerseEnd      any      `json:"verse_end"`
+	Timestamp     any      `json:"timestamp"`
 	Path          string   `json:"path"`            // CDN URL for the audio file
-	Duration      float64  `json:"duration"`         // Duration in seconds
-	FilesizeBytes int64    `json:"filesize_in_bytes"` // File size for download estimation
+	Duration      any      `json:"duration"`         // Duration in seconds
+	FilesizeBytes any      `json:"filesize_in_bytes"` // File size for download estimation
 	Thumbnail     *string  `json:"thumbnail"`
 }

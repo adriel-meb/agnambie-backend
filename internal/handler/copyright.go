@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/adriel-meb/agnambie-backend/internal/domain"
+	"github.com/adriel-meb/agnambie-backend/internal/logger"
 )
 
 // Copyright returns the copyright information for a Bible.
@@ -42,7 +43,7 @@ func (h *Handler) Copyright(w http.ResponseWriter, r *http.Request) {
 		return h.bb.FetchCopyright(ctx, bibleID)
 	})
 	if err != nil {
-		h.logger.Error("failed to fetch copyright",
+		logger.FromContext(ctx).Error("failed to fetch copyright",
 			slog.String("bible_id", bibleID),
 			slog.String("error", err.Error()),
 		)

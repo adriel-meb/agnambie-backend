@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/adriel-meb/agnambie-backend/internal/domain"
+	"github.com/adriel-meb/agnambie-backend/internal/logger"
 )
 
 // Books returns the list of books available in a given Bible.
@@ -42,7 +43,7 @@ func (h *Handler) Books(w http.ResponseWriter, r *http.Request) {
 		return h.bb.FetchBooks(ctx, bibleID)
 	})
 	if err != nil {
-		h.logger.Error("failed to fetch books",
+		logger.FromContext(ctx).Error("failed to fetch books",
 			slog.String("bible_id", bibleID),
 			slog.String("error", err.Error()),
 		)

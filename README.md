@@ -81,19 +81,41 @@ All Gabonese languages with audio Bible content available on Bible Brain:
 
 ### Response Format
 
-All endpoints return JSON. Success responses contain the data directly. Error responses use:
+All endpoints return JSON. Success responses are wrapped in a standard envelope:
 
 ```json
 {
-  "error": "human-readable error message"
+  "data": [ ... ],
+  "meta": { "count": 1 }
 }
 ```
+
+Error responses use a structured format:
+
+```json
+{
+  "error": {
+    "code": 404,
+    "message": "human-readable error message"
+  }
+}
+```
+
+### Advanced Low-Bandwidth Features (Gabon Optimizations)
+
+To support users on constrained networks, this backend automatically implements:
+
+- **Gzip Compression**: All JSON responses are compressed, reducing payload sizes by ~70-80%.
+- **ETag / 304 Not Modified**: Endpoints generate weak ETags. If the Flutter client sends an `If-None-Match` header and the data hasn't changed, the backend returns a lightweight `304 Not Modified`.
+- **Client Save-Data Header**: If the Android device sends the standard `Save-Data: on` HTTP header, the `/api/audio` endpoint automatically overrides the quality to the smallest `opus16` fileset when available.
 
 ### Response Headers
 
 | Header | Description |
 |--------|-------------|
 | `X-Cache` | `HIT` if served from cache, `MISS` if fetched from Bible Brain |
+| `ETag` | Hash of the response data (for conditional caching) |
+| `Cache-Control` | Dictates how long the client can cache the response |
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
 
@@ -148,6 +170,45 @@ All configuration is via environment variables (12-factor app):
 | `CORS_ALLOWED_ORIGINS` | `*` | Comma-separated allowed origins |
 | `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
+## Logging
+
+This project uses idiomatic, structured logging tailored for both development and production. 
+
+- **Access Logs**: Every request generates exactly one `INFO` log detailing `method`, `path`, `status`, `duration`, `bytes` (response size), and `req_id`.
+- **Application Logs**: Backend errors provide context-rich properties (e.g., `bible_id`, `fileset_id`) alongside the specific error.
+- **Upstream Logs**: Communication with the Bible Brain API is tracked. Errors scrub any API keys from URLs to prevent leaks.
+- **Request Tracing**: A unique `req_id` is generated for every request (or extracted from `X-Request-Id`) and is attached to all logs executed within that request lifecycle, allowing end-to-end tracing.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_LEVEL` | `info` | Minimum level to log. Use `debug` to see upstream Bible Brain requests. |
+| `LOG_FORMAT` | `text` | `text` for readable local development; `json` for machine-readable production logs. |
+
+### Enabling Debug Logs
+
+To troubleshoot upstream Bible Brain API issues, set `LOG_LEVEL=debug` locally:
+
+```bash
+LOG_LEVEL=debug LOG_FORMAT=text make run
+```
+
+### Examples
+
+**Local Development (`text` format)**
+```
+time=2026-09-25T15:43:00.000Z level=INFO msg="server starting" port=8080 env=development
+time=2026-09-25T15:43:02.105Z level=DEBUG msg="bible brain request completed" component=biblebrain upstream_path=/bibles/filesets/FANBSG/MAT/1 upstream_status=200 duration=150ms request_id=req-123
+time=2026-09-25T15:43:02.106Z level=INFO msg="request completed" method=GET path=/api/audio query="fileset_id=FANBSG&book=MAT&chapter=1" status=200 bytes=421 duration=155ms remote=127.0.0.1 req_id=req-123
+```
+
+**Production (`json` format)**
+```json
+{"time":"2026-09-25T15:43:02.106Z","level":"ERROR","msg":"failed to fetch audio","fileset_id":"FANBSG","book":"MAT","chapter":1,"error":"upstream request failed: 404 Not Found","request_id":"req-123"}
+{"time":"2026-09-25T15:43:02.106Z","level":"INFO","msg":"request completed","method":"GET","path":"/api/audio","query":"fileset_id=FANBSG&book=MAT&chapter=1","status":502,"bytes":78,"duration":"155ms","remote":"10.0.0.5","req_id":"req-123"}
+```
+
 ## Development
 
 ```bash
@@ -178,33 +239,20 @@ agnambie-backend/
 │   ├── server/main.go          # Application entrypoint
 │   └── explore/main.go         # Bible Brain API explorer tool
 ├── internal/
-│   ├── api/                    # HTTP handlers (one file per endpoint)
-│   │   ├── handler.go          # Shared Handler struct and JSON helpers
-│   │   ├── languages.go        # GET /api/languages
-│   │   ├── bibles.go           # GET /api/bibles
-│   │   ├── books.go            # GET /api/books
-│   │   ├── audio.go            # GET /api/audio
-│   │   ├── copyright.go        # GET /api/copyright
-│   │   └── health.go           # GET /health, GET /ready
 │   ├── biblebrain/             # Bible Brain API client
 │   │   ├── client.go           # HTTP client, URL builder
 │   │   ├── bibles.go           # Fetch Bibles + copyright
 │   │   ├── books.go            # Fetch book listings
 │   │   ├── audio.go            # Fetch chapter audio
-│   │   ├── gabon_config.go     # Gabon language/fileset allowlist
 │   │   └── errors.go           # Typed error types
-│   ├── cache/                  # Caching layer
-│   │   ├── cache.go            # Cacher interface + factory
-│   │   ├── memory.go           # In-memory implementation
-│   │   └── redis.go            # Redis implementation
-│   ├── config/                 # Configuration
-│   │   └── config.go           # Environment variable loading
-│   └── middleware/             # HTTP middleware
-│       ├── cors.go             # CORS headers
-│       ├── logging.go          # Structured request logging
-│       └── security.go         # Security headers
-├── Dockerfile                  # Multi-stage Docker build
-├── docker-compose.yml          # Redis + server compose
+│   ├── cache/                  # Caching layer (Memory & Redis w/ singleflight)
+│   ├── config/                 # Environment variable loading
+│   ├── domain/                 # Core entities (Language, Bible, Audio) & Allowlist
+│   ├── handler/                # HTTP request handlers & JSON envelopes
+│   ├── middleware/             # HTTP middleware (CORS, Logging, Compress)
+│   └── router/                 # Chi Router registration & middleware stack
+├── Dockerfile                  # Multi-stage Docker build (runs as non-root)
+├── docker-compose.yml          # Redis + server compose w/ healthchecks
 ├── Makefile                    # Build/run/test commands
 ├── .env.example                # Environment template
 └── bible-brain-api-reference.md # Bible Brain API docs

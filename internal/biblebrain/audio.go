@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
+
 
 	"github.com/adriel-meb/agnambie-backend/internal/domain"
 )
@@ -35,6 +37,20 @@ func (c *Client) FetchAudio(ctx context.Context, filesetID, book string, chapter
 	if err := json.Unmarshal(raw, &parsed); err != nil {
 		return nil, fmt.Errorf("parsing audio json (fileset=%s): %w", filesetID, err)
 	}
+
+	// Hotfix for HLS streams (4.dbt.io) missing key and v=4 parameters
+	for i, item := range parsed.Data {
+		if strings.Contains(item.Path, "4.dbt.io") && strings.Contains(item.Path, "playlist.m3u8") {
+			if u, err := url.Parse(item.Path); err == nil {
+				q := u.Query()
+				q.Set("v", "4")
+				q.Set("key", c.apiKey)
+				u.RawQuery = q.Encode()
+				parsed.Data[i].Path = u.String()
+			}
+		}
+	}
+
 
 	return json.Marshal(parsed.Data)
 }

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/adriel-meb/agnambie-backend/internal/domain"
+	"github.com/adriel-meb/agnambie-backend/internal/logger"
 )
 
 // bookIDPattern validates USFM book IDs (2-5 uppercase letters/digits).
@@ -82,7 +83,7 @@ func (h *Handler) Audio(w http.ResponseWriter, r *http.Request) {
 		return h.bb.FetchAudio(ctx, effectiveID, book, chapter)
 	})
 	if err != nil {
-		h.logger.Error("failed to fetch audio",
+		logger.FromContext(ctx).Error("failed to fetch audio",
 			slog.String("fileset_id", effectiveID),
 			slog.String("book", book),
 			slog.Int("chapter", chapter),

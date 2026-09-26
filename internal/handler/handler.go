@@ -7,7 +7,6 @@
 package handler
 
 import (
-	"log/slog"
 	"net/http"
 
 	"github.com/adriel-meb/agnambie-backend/internal/biblebrain"
@@ -16,17 +15,15 @@ import (
 
 // Handler holds the dependencies all HTTP handlers share.
 type Handler struct {
-	bb     *biblebrain.Client
-	cache  cache.Cacher
-	logger *slog.Logger
+	bb    *biblebrain.Client
+	cache cache.Cacher
 }
 
 // NewHandler creates a Handler with its required dependencies.
-func NewHandler(bb *biblebrain.Client, c cache.Cacher, logger *slog.Logger) *Handler {
+func NewHandler(bb *biblebrain.Client, c cache.Cacher) *Handler {
 	return &Handler{
-		bb:     bb,
-		cache:  c,
-		logger: logger,
+		bb:    bb,
+		cache: c,
 	}
 }
 

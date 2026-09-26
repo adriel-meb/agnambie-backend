@@ -10,11 +10,16 @@ package biblebrain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
+
+	"github.com/adriel-meb/agnambie-backend/internal/logger"
 )
 
 // Client is a configured HTTP client for the Bible Brain API.
@@ -57,19 +62,44 @@ func (c *Client) buildURL(path string, params url.Values) string {
 	return u.String()
 }
 
+// scrubError removes the API key from a URL error string.
+func (c *Client) scrubError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	if c.apiKey != "" {
+		msg = strings.ReplaceAll(msg, c.apiKey, "REDACTED")
+	}
+	return errors.New(msg)
+}
+
 // get makes an authenticated GET request to the Bible Brain API.
 // It returns the raw response body or an UpstreamError on non-200 status.
 func (c *Client) get(ctx context.Context, path string, params url.Values) ([]byte, error) {
 	endpoint := c.buildURL(path, params)
 
+	log := logger.FromContext(ctx).With(
+		slog.String("component", "biblebrain"),
+		slog.String("upstream_path", path),
+	)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("building request for %s: %w", path, err)
+		return nil, fmt.Errorf("building request for %s: %w", path, c.scrubError(err))
 	}
 
+	start := time.Now()
 	resp, err := c.httpClient.Do(req)
+	duration := time.Since(start)
+
 	if err != nil {
-		return nil, fmt.Errorf("calling bible brain %s: %w", path, err)
+		scrubbed := c.scrubError(err)
+		log.Error("bible brain request failed",
+			slog.Duration("duration", duration),
+			slog.String("error", scrubbed.Error()),
+		)
+		return nil, fmt.Errorf("calling bible brain %s: %w", path, scrubbed)
 	}
 	defer resp.Body.Close()
 
@@ -79,7 +109,11 @@ func (c *Client) get(ctx context.Context, path string, params url.Values) ([]byt
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		// Truncate body for logging to avoid storing large error pages.
+		log.Warn("bible brain returned error status",
+			slog.Int("upstream_status", resp.StatusCode),
+			slog.Duration("duration", duration),
+		)
+
 		truncated := string(body)
 		if len(truncated) > 500 {
 			truncated = truncated[:500] + "..."
@@ -90,6 +124,11 @@ func (c *Client) get(ctx context.Context, path string, params url.Values) ([]byt
 			Body:       truncated,
 		}
 	}
+
+	log.Debug("bible brain request completed",
+		slog.Int("upstream_status", resp.StatusCode),
+		slog.Duration("duration", duration),
+	)
 
 	return body, nil
 }

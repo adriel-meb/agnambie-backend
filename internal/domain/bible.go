@@ -14,10 +14,10 @@ type BibleSummary struct {
 	Name            string                     `json:"name"`
 	VName           string                     `json:"vname"`
 	Language        string                     `json:"language"`
-	LanguageID      int                        `json:"language_id"`
+	LanguageID      any                        `json:"language_id"`
 	LanguageAutonym string                     `json:"language_autonym"`
 	ISO             string                     `json:"iso"`
-	Date            int                        `json:"date"`
+	Date            any                        `json:"date"`
 	Filesets        map[string][]FilesetEntry  `json:"filesets"`
 }
 
@@ -35,8 +35,8 @@ type Book struct {
 	BookIDOsis     string `json:"book_id_osis"`
 	Name           string `json:"name"`
 	Testament      string `json:"testament"`
-	TestamentOrder int    `json:"testament_order"`
-	BookOrder      int    `json:"book_order"`
+	TestamentOrder any    `json:"testament_order"`
+	BookOrder      any    `json:"book_order"`
 	BookGroup      string `json:"book_group"`
-	Chapters       []int  `json:"chapters"`
+	Chapters       []any  `json:"chapters"`
 }

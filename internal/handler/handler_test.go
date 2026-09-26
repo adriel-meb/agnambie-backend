@@ -8,7 +8,6 @@ package handler
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -40,7 +39,7 @@ func setupTestEnv(t *testing.T) (*Handler, func()) {
 	}))
 
 	bbClient := biblebrain.NewClient(fakeBB.URL, "test-key", 5*time.Second)
-	h := NewHandler(bbClient, cache.NewMemory(), slog.Default())
+	h := NewHandler(bbClient, cache.NewMemory())
 	return h, fakeBB.Close
 }
 

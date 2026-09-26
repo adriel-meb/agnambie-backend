@@ -36,6 +36,9 @@ type Config struct {
 	// LogLevel controls the minimum log level: "debug", "info", "warn", "error".
 	LogLevel string
 
+	// LogFormat controls the structured log format: "text" (for dev) or "json" (for prod).
+	LogFormat string
+
 	// Env is the deployment environment: "development" or "production".
 	Env string
 }
@@ -50,6 +53,7 @@ func Load() Config {
 		RedisURL:           os.Getenv("REDIS_URL"),
 		CORSAllowedOrigins: parseCORSOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
 		LogLevel:           envOrDefault("LOG_LEVEL", "info"),
+		LogFormat:          envOrDefault("LOG_FORMAT", "text"),
 		Env:                envOrDefault("ENV", "development"),
 	}
 }

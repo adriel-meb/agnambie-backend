@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,7 +35,7 @@ func main() {
 	cfg := config.Load()
 
 	// ── 2. Structured logging ───────────────────────────────────────────
-	logger := setupLogger(cfg.LogLevel)
+	logger := setupLogger(cfg)
 	slog.SetDefault(logger)
 
 	// ── 3. Validate required config ─────────────────────────────────────
@@ -72,7 +73,7 @@ func main() {
 	)
 
 	// ── 6. Handler + Router ─────────────────────────────────────────────
-	h := handler.NewHandler(bbClient, c, logger)
+	h := handler.NewHandler(bbClient, c)
 	r := router.New(h, cfg.CORSAllowedOrigins, logger)
 
 	// ── 7. Start server with graceful shutdown ──────────────────────────
@@ -113,10 +114,10 @@ func main() {
 	logger.Info("server stopped")
 }
 
-// setupLogger creates a slog.Logger with the given level string.
-func setupLogger(level string) *slog.Logger {
+// setupLogger creates a structured logger depending on the configuration.
+func setupLogger(cfg config.Config) *slog.Logger {
 	var logLevel slog.Level
-	switch level {
+	switch strings.ToLower(cfg.LogLevel) {
 	case "debug":
 		logLevel = slog.LevelDebug
 	case "warn":
@@ -127,7 +128,16 @@ func setupLogger(level string) *slog.Logger {
 		logLevel = slog.LevelInfo
 	}
 
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	opts := &slog.HandlerOptions{
 		Level: logLevel,
-	}))
+	}
+
+	var handler slog.Handler
+	if strings.ToLower(cfg.LogFormat) == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	}
+
+	return slog.New(handler)
 }

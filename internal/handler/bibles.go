@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/adriel-meb/agnambie-backend/internal/domain"
+	"github.com/adriel-meb/agnambie-backend/internal/logger"
 )
 
 // Bibles returns Bible translations available for a given Gabon language.
@@ -42,7 +43,7 @@ func (h *Handler) Bibles(w http.ResponseWriter, r *http.Request) {
 		return h.bb.FetchBibles(ctx, langCode)
 	})
 	if err != nil {
-		h.logger.Error("failed to fetch bibles",
+		logger.FromContext(ctx).Error("failed to fetch bibles",
 			slog.String("language_code", langCode),
 			slog.String("error", err.Error()),
 		)
@@ -63,5 +64,3 @@ func (h *Handler) Bibles(w http.ResponseWriter, r *http.Request) {
 	// 1 hour client-side cache, matching server-side cache TTL.
 	writeData(w, r, data, hit, 3600)
 }
-
-

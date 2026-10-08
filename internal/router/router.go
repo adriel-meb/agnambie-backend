@@ -27,13 +27,15 @@ func New(h *handler.Handler, corsOrigins []string, rlReqsPerSec float64, rlBurst
 	r.Use(chimw.RealIP)
 	r.Use(middleware.RequestLogger(logger))
 	r.Use(middleware.CORS(corsOrigins))
-	r.Use(middleware.Compress)     // Gzip — critical for low-bandwidth clients
+	r.Use(middleware.Compress) // Gzip — critical for low-bandwidth clients
 	r.Use(middleware.SecurityHeaders)
 	r.Use(chimw.Recoverer)
 
 	// ── Probes — outside /api for load balancer access ───────────────────
 	r.Get("/health", h.Health)
+	r.Head("/health", h.Health) // Support HEAD requests (used by UptimeRobot)
 	r.Get("/ready", h.Ready)
+	r.Head("/ready", h.Ready)
 
 	// ── API routes ──────────────────────────────────────────────────────
 	apiRoutes := func(r chi.Router) {
@@ -42,6 +44,7 @@ func New(h *handler.Handler, corsOrigins []string, rlReqsPerSec float64, rlBurst
 		r.Get("/bibles", h.Bibles)
 		r.Get("/books", h.Books)
 		r.Get("/audio", h.Audio)
+		r.Get("/audio/playlist", h.Playlist)
 		r.Get("/copyright", h.Copyright)
 		r.Post("/metrics", h.Metrics)
 	}

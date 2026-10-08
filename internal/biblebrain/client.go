@@ -4,7 +4,7 @@
 // Purpose: Bible Brain API client — builds URLs, makes authenticated requests.
 // Author: Backend Team
 // Created: 2026-09-25
-// Last Modified: 2026-09-25
+// Last Modified: 2026-10-08
 
 package biblebrain
 
@@ -77,8 +77,41 @@ func (c *Client) scrubError(err error) error {
 // get makes an authenticated GET request to the Bible Brain API.
 // It returns the raw response body or an UpstreamError on non-200 status.
 func (c *Client) get(ctx context.Context, path string, params url.Values) ([]byte, error) {
-	endpoint := c.buildURL(path, params)
+	return c.doGet(ctx, c.buildURL(path, params), path)
+}
 
+// IsAPIHost reports whether rawURL points at the Bible Brain API host, i.e. a
+// resource that can only be fetched with the secret API key. Such URLs must
+// never be handed to clients.
+func (c *Client) IsAPIHost(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	base, err := url.Parse(c.baseURL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(u.Host, base.Host)
+}
+
+// getAbsolute makes an authenticated GET request to an absolute Bible Brain URL
+// (e.g. an HLS playlist link returned by the API), appending v=4 and the key.
+func (c *Client) getAbsolute(ctx context.Context, rawURL string) ([]byte, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing upstream url: %w", c.scrubError(err))
+	}
+	q := u.Query()
+	q.Set("v", "4")
+	q.Set("key", c.apiKey)
+	u.RawQuery = q.Encode()
+	return c.doGet(ctx, u.String(), u.Path)
+}
+
+// doGet executes a GET against a fully built endpoint (which may contain the API
+// key). path is the key-free upstream path used for logs and error messages.
+func (c *Client) doGet(ctx context.Context, endpoint, path string) ([]byte, error) {
 	log := logger.FromContext(ctx).With(
 		slog.String("component", "biblebrain"),
 		slog.String("upstream_path", path),

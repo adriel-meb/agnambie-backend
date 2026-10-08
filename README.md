@@ -271,7 +271,7 @@ docker build -t agnambie-backend .
 docker run -p 8080:8080 --env-file .env agnambie-backend
 ```
 
-### Cloud Run / Fly.io / Railway
+### Cloud Run / Fly.io / Railway / Render
 
 The Docker image is self-contained. Set environment variables in your platform's dashboard:
 
@@ -280,6 +280,35 @@ The Docker image is self-contained. Set environment variables in your platform's
 3. Set `CORS_ALLOWED_ORIGINS` to your Flutter app's domain
 4. Set `ENV=production`
 5. Deploy the Docker image
+
+### Render (Free Tier) + Upstash Redis Deployment Guide
+
+This is the recommended path for hosting the backend completely for free without requiring a credit card.
+
+**1. Create the Database (Upstash)**
+1. Go to [Upstash](https://upstash.com/) and create a free Redis database.
+2. Select a US region (e.g., `us-east-1`) to minimize latency with Render.
+3. In your database dashboard, under the **Connect** section, select **Node.js** or **ioredis** to reveal the native Redis connection string.
+4. Copy the URL. It will look like this: `rediss://default:PASSWORD@your-endpoint.upstash.io:6379`. (Note the `rediss://` which enables required TLS).
+
+**2. Deploy the App (Render)**
+1. Sign up for [Render.com](https://render.com/) using GitHub.
+2. Create a new **Web Service** and select **Build and deploy from a Git repository**.
+3. Connect the `agnambie-backend` repository.
+4. Set the **Root Directory** to `agnambie-backend`.
+5. Render will automatically detect the `Dockerfile` and select the **Docker** environment.
+6. Ensure the **Free** instance type is selected.
+7. Add the following Environment Variables:
+   - `REDIS_URL`: Paste the `rediss://` URL from Upstash.
+   - `BIBLE_BRAIN_API_KEY`: Your real API key.
+8. Click **Create Web Service**. 
+
+**3. Mitigate "Freezing" (The Keep-Alive Ping)**
+Render puts Free Web Services to sleep after 15 minutes of inactivity. When it wakes up, the first request takes ~10-30 seconds. To keep the API instant 24/7 without exceeding the 750 free hours/month limit:
+1. Create a free account on [UptimeRobot.com](https://uptimerobot.com/) or [cron-job.org](https://cron-job.org/).
+2. Create an HTTP monitor pointing to your Render app's health endpoint: `https://your-app.onrender.com/health`.
+3. Set the ping interval to **14 minutes**.
+4. The Go backend processes this ping with near-zero resources, effectively tricking Render into keeping the container awake 24/7.
 
 ## Security
 

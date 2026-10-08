@@ -2,7 +2,7 @@
 // Purpose: HTTP handler for GET /api/audio.
 // Author: Backend Team
 // Created: 2026-09-25
-// Last Modified: 2026-09-25
+// Last Modified: 2026-10-08
 
 package handler
 
@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -36,27 +37,13 @@ func (h *Handler) Audio(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	q := r.URL.Query()
 
-	filesetID := strings.TrimSpace(q.Get("fileset_id"))
-	book := strings.TrimSpace(strings.ToUpper(q.Get("book")))
-	chapterStr := strings.TrimSpace(q.Get("chapter"))
-
-	// Validate required params.
-	if filesetID == "" || book == "" || chapterStr == "" {
-		writeError(w, http.StatusBadRequest, "fileset_id, book, and chapter are required")
+	p, msg := parseChapterParams(q)
+	if msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
-
-	// Validate book format.
-	if !bookIDPattern.MatchString(book) {
-		writeError(w, http.StatusBadRequest, "book must be a valid USFM book ID (e.g. MAT, GEN)")
-		return
-	}
-
-	chapter, err := strconv.Atoi(chapterStr)
-	if err != nil || chapter < 1 || chapter > 200 {
-		writeError(w, http.StatusBadRequest, "chapter must be a positive integer (1-200)")
-		return
-	}
+	filesetID, book, chapter := p.filesetID, p.book, p.chapter
+	chapterStr := strconv.Itoa(chapter)
 
 	// Data Saver: respect both ?quality=data_saver AND the standard Save-Data header.
 	// The Save-Data: on header is sent automatically by Android/Chrome when the user
@@ -76,7 +63,9 @@ func (h *Handler) Audio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cacheKey := "audio:" + effectiveID + ":" + book + ":" + chapterStr
+	// "v2" prefix: entries cached before the key-leak fix contained the API key
+	// in HLS URLs; bumping the prefix guarantees they are never served again.
+	cacheKey := "audio:v2:" + effectiveID + ":" + book + ":" + chapterStr
 
 	// Audio CDN URLs may expire, so use a shorter cache TTL.
 	raw, hit, err := h.cache.GetOrSet(ctx, cacheKey, 30*time.Minute, func() ([]byte, error) {
@@ -103,4 +92,32 @@ func (h *Handler) Audio(w http.ResponseWriter, r *http.Request) {
 
 	// Shorter client-side cache (15 min) since CDN URLs expire.
 	writeData(w, r, data, hit, 900)
+}
+
+// chapterParams holds validated fileset/book/chapter query parameters.
+type chapterParams struct {
+	filesetID string
+	book      string
+	chapter   int
+}
+
+// parseChapterParams validates the fileset_id, book and chapter query params
+// shared by the audio and playlist endpoints. It returns a non-empty message
+// describing the first validation failure, suitable for a 400 response.
+func parseChapterParams(q url.Values) (chapterParams, string) {
+	filesetID := strings.TrimSpace(q.Get("fileset_id"))
+	book := strings.TrimSpace(strings.ToUpper(q.Get("book")))
+	chapterStr := strings.TrimSpace(q.Get("chapter"))
+
+	if filesetID == "" || book == "" || chapterStr == "" {
+		return chapterParams{}, "fileset_id, book, and chapter are required"
+	}
+	if !bookIDPattern.MatchString(book) {
+		return chapterParams{}, "book must be a valid USFM book ID (e.g. MAT, GEN)"
+	}
+	chapter, err := strconv.Atoi(chapterStr)
+	if err != nil || chapter < 1 || chapter > 200 {
+		return chapterParams{}, "chapter must be a positive integer (1-200)"
+	}
+	return chapterParams{filesetID: filesetID, book: book, chapter: chapter}, ""
 }
